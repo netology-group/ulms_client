@@ -225,6 +225,6 @@ end
 def connect(host: 'localhost', port: 1883, client:, **kwargs)
   conn = Connection.new(host: host, port: port, client: client, **kwargs)
   conn.connect
-  conn.subscribe("agents/#{client.agent}/api/v1/#")
+  conn.subscribe("agents/#{client.agent}/api/v1/in/#")
   conn
 end
