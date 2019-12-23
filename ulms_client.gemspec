@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name = 'ulms_client'
-  s.version = "0.1.1"
-  s.date = '2019-10-04'
+  s.version = "0.2.0"
+  s.date = '2019-12-24'
   s.summary = 'DSL for writing ULMS interaction scenarios'
   s.authors = ['Timofey Martynov']
   s.email = 't.martynov@talenttech.ru'
