@@ -6,7 +6,7 @@ require 'ulms_client'
 me = agent('web', account('fey', 'dev.usr.example.org'))
 conference = account('conference', 'dev.svc.example.org')
 
-conn = connect host: 'localhost', port: 1883, client: client(me, mode: 'agents')
+conn = connect host: 'localhost', port: 1883, agent: me
 
 # Create a room.
 response = conn.make_request 'room.create', to: conference, payload: {

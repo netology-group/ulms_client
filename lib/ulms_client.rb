@@ -39,30 +39,17 @@ class Agent
   end
 end
 
-class Client
-  attr_reader :version, :mode, :agent
-
-  def initialize(version:, mode:, agent:)
-    @version = version
-    @mode = mode
-    @agent = agent
-  end
-
-  def to_s
-    "#{@version}/#{@mode}/#{@agent}"
-  end
-end
-
 class Connection
-  OPTIONS = [:username, :password, :clean_session, :keep_alive]
+  OPTIONS = [:password, :clean_session, :keep_alive]
 
-  def initialize(host:, port:, client:, **kwargs)
-    @client = client
+  def initialize(host:, port:, mode:, agent:, **kwargs)
+    @agent = agent
 
     @mqtt = MQTT::Client.new
     @mqtt.host = host
     @mqtt.port = port
-    @mqtt.client_id = client.to_s
+    @mqtt.username = "v2::#{mode}"
+    @mqtt.client_id = agent.to_s
 
     OPTIONS.each do |option|
         @mqtt.send("#{option}=", kwargs[option]) if kwargs[option] != nil
@@ -72,13 +59,13 @@ class Connection
   # Establish the connection.
   def connect
     @mqtt.connect
-    LOG.info("#{@client} connected")
+    LOG.info("#{@agent} connected")
   end
 
   # Disconnect from the broker.
   def disconnect
     @mqtt.disconnect
-    LOG.info("#{@client} disconnected")
+    LOG.info("#{@agent} disconnected")
   end
 
   # Publish a message to the `topic`.
@@ -97,7 +84,7 @@ class Connection
     @mqtt.publish(topic, JSON.dump(envelope), retain, qos)
 
     LOG.info <<~EOF
-      #{@client.agent} published to #{topic} (q#{qos}, r#{retain ? 1 : 0}):
+      #{@agent} published to #{topic} (q#{qos}, r#{retain ? 1 : 0}):
       Payload: #{JSON.pretty_generate(payload)}
       Properties: #{JSON.pretty_generate(properties)}
     EOF
@@ -109,7 +96,7 @@ class Connection
   #   - `qos`: Subscriptions QoS. An interger 0..2.
   def subscribe(topic, qos: 0)
     @mqtt.subscribe([topic, qos])
-    LOG.info("#{@client.agent} subscribed to #{topic} (q#{qos})")
+    LOG.info("#{@agent} subscribed to #{topic} (q#{qos})")
   end
 
   # Waits for an incoming message.
@@ -126,7 +113,7 @@ class Connection
         message = IncomingMessage.new(topic, payload, envelope['properties'])
 
         LOG.info <<~EOF
-          #{@client.agent} received a message from topic #{topic}:
+          #{@agent} received a message from topic #{topic}:
           Payload: #{JSON.pretty_generate(message.payload)}
           Properties: #{JSON.pretty_generate(message.properties)}
         EOF
@@ -148,20 +135,21 @@ class Connection
   # Options:
   #   - `to`: the destination service `Account` (required).
   #   - `payload`: the publish message payload (required).
+  #   - `api_version`: service API version.
   #   - `properties`: additional MQTT properties hash.
   #   - `qos`: Publish QoS. An integer 0..2.
   #   - `timeout`: Timeout for the response awaiting.
-  def make_request(method, to:, payload:, properties: {}, qos: 0, timeout: DEFAULT_TIMEOUT)
+  def make_request(method, to:, payload:, api_version: 'v1', properties: {}, qos: 0, timeout: DEFAULT_TIMEOUT)
     correlation_data = SecureRandom.hex
 
     properties.merge!({
       type: 'request',
       method: method,
       correlation_data: correlation_data,
-      response_topic: "agents/#{@client.agent}/api/v1/in/#{to}"
+      response_topic: "agents/#{@agent}/api/#{api_version}/in/#{to}"
     })
 
-    topic = "agents/#{@client.agent}/api/v1/out/#{to}"
+    topic = "agents/#{@agent}/api/#{api_version}/out/#{to}"
     publish(topic, payload: payload, properties: properties, qos: qos)
 
     receive(timeout) do |msg|
@@ -203,28 +191,20 @@ def account(label, audience)
   Account.new(label, audience)
 end
 
-# Builds a `Client` instance.
-#
-# Options:
-#  - `mode`: Connection mode (required). Available values: `agents`, `service-agents`, `bridge-agents`, `observer-agents`.
-#  - `version`: Always `v1` for now.
-def client(agent, mode:, version: 'v1')
-  Client.new(version: version, mode: mode, agent: agent)
-end
-
 # Connects to the broker and subscribes to the client's inbox topics.
 #
 # Options:
 #   - `host`: The broker's host (required).
 #   - `port`: The broker's TCP port for MQTT connections (required).
-#   - `client`: The `Client` object (required).
-#   - `username`: If the broker has authn enabled this requires any non-empty string.
-#   - `password`: If the broker has authn enalbed this requires the password for the `client`'s account.
+#   - `agent`: The `Agent` object (required).
+#   - `mode`: Connection mode: default | service | bridge | observer.
+#   - `api_version`: agent's API version.
+#   - `password`: If the broker has authn enalbed this requires the password for the `agent`'s account.
 #   - `clean_session`: A boolean indicating whether the broker has to clean the previos session.
 #   - `keep_alive`: Keep alive time in seconds.
-def connect(host: 'localhost', port: 1883, client:, **kwargs)
-  conn = Connection.new(host: host, port: port, client: client, **kwargs)
+def connect(host: 'localhost', port: 1883, mode: 'default', agent:, api_version: 'v1', **kwargs)
+  conn = Connection.new(host: host, port: port, mode: mode, agent: agent, **kwargs)
   conn.connect
-  conn.subscribe("agents/#{client.agent}/api/v1/in/#")
+  conn.subscribe("agents/#{agent}/api/#{api_version}/in/#")
   conn
 end

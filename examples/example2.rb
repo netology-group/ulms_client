@@ -13,7 +13,7 @@ conference = agent("alpha", account('conference', audience))
 janus = agent("alpha", account('janus-gateway', audience))
 janus_inbox = "agents/#{janus}/api/v1/in/#{conference.account}"
 
-conn = connect host: 'localhost', port: 1883, client: client(conference, mode: 'service-agents')
+conn = connect host: 'localhost', port: 1883, mode: 'service', agent: conference
 conn.subscribe "apps/#{janus.account}/api/v1/responses"
 
 # Get session.

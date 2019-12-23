@@ -16,8 +16,8 @@ user = agent('web', account('fey', usr_audience))
 conference = account('conference', svc_audience)
 
 conn_opts = { host: 'localhost', port: 1883 }
-broker_conn = connect conn_opts.merge(client: client(broker, mode: 'service-agents'))
-user_conn = connect conn_opts.merge(client: client(user, mode: 'agents'))
+broker_conn = connect conn_opts.merge(mode: 'service', agent: broker)
+user_conn = connect conn_opts.merge(agent: user)
 
 # Put user online into the room.
 broker_conn.publish "agents/#{user}/api/v1/out/#{conference}",
