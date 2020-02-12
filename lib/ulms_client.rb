@@ -78,7 +78,7 @@ class Connection
   #   - `retain`: A boolean indicating whether the messages should be retained.
   #   - `qos`: An integer 0..2 that sets the QoS.
   def publish(topic, payload:, properties: {}, retain: false, qos: 0)
-    if @mode == 'default' || !properties[:local_timestamp]
+    if @mode == 'default' && !properties[:local_timestamp]
       properties = properties.merge(local_timestamp: DateTime.now.strftime('%Q'))
     end
 
