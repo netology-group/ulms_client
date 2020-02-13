@@ -30,4 +30,3 @@ require 'ulms_client'
 ```
 
 See examples and documentation in `lib/ulms_client.rb` for available methods.
-
