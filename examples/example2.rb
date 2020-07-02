@@ -12,41 +12,68 @@ audience = 'dev.svc.example.org'
 conference = agent("alpha", account('conference', audience))
 janus = agent("alpha", account('janus-gateway', audience))
 janus_inbox = "agents/#{janus}/api/v1/in/#{conference.account}"
+conference_inbox = "agents/#{conference}/api/v1/in/#{janus.account}"
 
 conn = connect host: 'localhost', port: 1883, mode: 'service', agent: conference
 conn.subscribe "apps/#{janus.account}/api/v1/responses"
 
 # Get session.
-conn.publish janus_inbox, payload: { janus: 'create', transaction: 'txn-session' }
+conn.publish janus_inbox,
+  payload: {
+    janus: 'create',
+    transaction: 'txn-session'
+  },
+  properties: {
+    type: 'request',
+    method: 'ignore',
+    correlation_data: SecureRandom.hex(),
+    response_topic: conference_inbox
+  }
+
 response = conn.receive { |msg| msg['transaction'] == 'txn-session' }
 assert response['janus'] == 'success'
 session_id = response['data']['id']
 
 # Get handle.
-conn.publish janus_inbox, payload: {
-  janus: 'attach',
-  session_id: session_id,
-  plugin: 'janus.plugin.conference',
-  transaction: 'txn-handle'
-}
+conn.publish janus_inbox,
+  payload: {
+    janus: 'attach',
+    session_id: session_id,
+    plugin: 'janus.plugin.conference',
+    transaction: 'txn-handle'
+  },
+  properties: {
+    type: 'request',
+    method: 'ignore',
+    correlation_data: SecureRandom.hex(),
+    response_topic: conference_inbox
+  }
+
 
 response = conn.receive { |msg| msg['transaction'] == 'txn-handle' }
 assert response['janus'] == 'success'
 handle_id = response['data']['id']
 
 # Make `stream.upload` request.
-conn.publish janus_inbox, payload: {
-  janus: 'message',
-  session_id: session_id,
-  handle_id: handle_id,
-  transaction: 'txn-upload',
-  body: {
-    method: 'stream.upload',
-    id: rtc_id,
-    bucket: "origin.webinar.#{audience}",
-    object: "#{rtc_id}.source.mp4"
+conn.publish janus_inbox,
+  payload: {
+    janus: 'message',
+    session_id: session_id,
+    handle_id: handle_id,
+    transaction: 'txn-upload',
+    body: {
+      method: 'stream.upload',
+      id: rtc_id,
+      bucket: "origin.webinar.#{audience}",
+      object: "#{rtc_id}.source.mp4"
+    }
+  },
+  properties: {
+    type: 'request',
+    method: 'ignore',
+    correlation_data: SecureRandom.hex(),
+    response_topic: conference_inbox
   }
-}
 
 response = conn.receive { |msg| msg['transaction'] == 'txn-upload' }
 assert response['janus'] == 'ack'

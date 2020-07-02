@@ -3,10 +3,10 @@
 require 'securerandom'
 require 'ulms_client'
 
-service = agent('alpha', account('some_service', 'dev.svc.example.org'))
+service = agent(SecureRandom.hex(), account('some_service', 'dev.svc.example.org'))
 service_conn = connect host: 'localhost', port: 1883, agent: service, mode: 'service'
 
-user = agent('web', account('user123', 'dev.usr.example.org'))
+user = agent('web', account("user#{SecureRandom.hex()}", 'dev.usr.example.org'))
 user_conn = connect host: 'localhost', port: 1883, agent: user
 
 inbox_topic = "agents/#{user}/api/v1/in/#{service.account}"
